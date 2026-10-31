@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Детектив — дело каждый раз новое</title>
+  <meta name="description" content="Детективная игра: каждое дело генерируется заново. Осматривайте место преступления, допрашивайте подозреваемых и найдите убийцу за 6 действий.">
+  <meta name="theme-color" content="#14110d">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=PT+Mono&family=PT+Serif:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #14110d; --paper: #efe4cf; --paper-d: #dfd0b3; --ink: #2b2118; --muted: #7a6a55; --red: #a3261f; --line: #c9b896; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; background: radial-gradient(circle at 50% 0%, #2c2318, var(--bg) 70%); background-color: var(--bg); color: var(--ink); font: 16px/1.5 'PT Serif', Georgia, serif; }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    .app { max-width: 720px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top)) 14px calc(30px + env(safe-area-inset-bottom)); }
+    .paper { padding: clamp(18px, 4vw, 28px); border-radius: 6px; background: var(--paper); box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.8); background-image: repeating-linear-gradient(0deg, transparent 0 27px, rgba(0, 0, 0, 0.04) 27px 28px); }
+    .type { font-family: 'PT Mono', 'Courier New', monospace; }
+    .head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+    .head h1 { margin: 0; font: 400 clamp(26px, 6vw, 34px)/1.1 'PT Mono', monospace; }
+    .stamp { padding: 4px 10px; border: 3px solid var(--red); color: var(--red); font: 400 15px 'PT Mono', monospace; transform: rotate(-6deg); white-space: nowrap; }
+    .story { margin: 14px 0 0; font-size: 17px; }
+    .actions { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; font-weight: 700; }
+    .actions i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); }
+    .actions i.used { background: var(--ink); }
+    h2 { margin: 26px 0 10px; color: var(--paper); font: 400 20px 'PT Mono', monospace; letter-spacing: 0.04em; }
+    .spots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .spot { display: grid; gap: 4px; justify-items: start; padding: 14px; border: 0; border-radius: 6px; background: var(--paper); text-align: left; transition: transform 0.15s; }
+    .spot:hover:not(:disabled) { transform: translateY(-2px); }
+    .spot b { font-size: 26px; }
+    .spot span { font-weight: 700; }
+    .spot small { color: var(--muted); }
+    .spot.found { background: #fff6dc; box-shadow: inset 0 0 0 2px var(--red); }
+    .spot:disabled { cursor: default; }
+    .suspects { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+    .sus { position: relative; padding: 14px; border-radius: 6px; background: var(--paper); }
+    .sus.out { opacity: 0.45; }
+    .sus.out::after { content: ''; position: absolute; inset: 50% 10px auto; height: 3px; background: var(--red); transform: rotate(-8deg); }
+    .sus__top { display: flex; gap: 10px; align-items: center; }
+    .sus__face { font-size: 38px; }
+    .sus b { display: block; }
+    .sus small { color: var(--muted); }
+    .facts { margin: 10px 0; padding: 0; list-style: none; font-size: 14px; }
+    .facts li { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+    .facts li:last-child { border: 0; }
+    .facts .q { color: var(--muted); font-style: italic; }
+    .quote { margin: 0 0 8px; font-style: italic; font-size: 14px; }
+    .sus__btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mini { padding: 7px 10px; border: 1px solid var(--ink); border-radius: 4px; background: transparent; font-size: 14px; }
+    .mini--red { border-color: var(--red); background: var(--red); color: #fff; }
+    .mini:disabled { opacity: 0.4; cursor: default; }
+    .notes { margin-top: 14px; color: var(--paper-d); font-size: 14px; text-align: center; }
+    .result { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(10, 8, 6, 0.85); }
+    .result[hidden] { display: none; }
+    .result .paper { max-width: 520px; text-align: center; animation: drop 0.4s ease; }
+    @keyframes drop { from { transform: translateY(-20px) rotate(-2deg); opacity: 0; } }
+    .result h3 { margin: 0; font: 400 30px 'PT Mono', monospace; }
+    .result p { margin: 12px 0; }
+    .btn { padding: 13px 26px; border: 0; border-radius: 4px; background: var(--ink); color: var(--paper); font: 400 17px 'PT Mono', monospace; }
+    .score { margin-top: 14px; color: var(--paper-d); text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="paper">
+      <div class="head"><h1 id="caseTitle">Дело №</h1><span class="stamp">Совершенно секретно</span></div>
+      <p class="story" id="story"></p>
+      <div class="actions" id="actions"></div>
+    </section>
+
+    <h2>🔍 Место преступления</h2>
+    <div class="spots" id="spots"></div>
+
+    <h2>👥 Подозреваемые</h2>
+    <div class="suspects" id="suspects"></div>
+    <p class="notes">Подсказка: внешность видна сразу, вещи и размер обуви узнаете на допросе. Нажмите ✗, чтобы вычеркнуть подозреваемого.</p>
+    <p class="score" id="score"></p>
+  </main>
+
+  <div class="result" id="result" hidden><div class="paper"><h3 id="resTitle"></h3><p id="resText"></p><button class="btn" id="nextCase">Следующее дело</button></div></div>
+
+  <script>
+    const NAMES = [['Графиня Орлова', '👵', 'хозяйка дома'], ['Доктор Ветров', '👨‍⚕️', 'семейный врач'], ['Мисс Лебедева', '👩‍🦰', 'гувернантка'], ['Полковник Громов', '🧔', 'старый друг'], ['Повар Жан', '👨‍🍳', 'повар'], ['Садовник Фёдор', '🧑‍🌾', 'садовник'], ['Наследник Аркадий', '🤵', 'племянник'], ['Актриса Вера', '💃', 'гостья'], ['Профессор Штерн', '👴', 'учёный'], ['Секретарь Лиза', '👩‍💼', 'секретарь']];
+    const HAIR = [['рыжие', 'рыжий волос'], ['седые', 'седой волос'], ['чёрные', 'чёрный волос'], ['светлые', 'светлый волос']];
+    const ITEMS = [['трость', 'след от трости на паркете'], ['зонт', 'мокрый след от зонта'], ['перчатки', 'кожаная перчатка у окна'], ['трубка', 'запах трубочного табака'], ['очки', 'осколок стекла от очков']];
+    const VICTIMS = ['барон фон Мейер', 'банкир Савельев', 'коллекционер Ланской', 'адвокат Белкин', 'композитор Римский'];
+    const PLACES = ['в загородном особняке', 'в старом театре', 'на борту поезда «Северная звезда»', 'в отеле «Гранд»', 'на званом ужине в поместье'];
+    const SPOTS = [['🧶', 'Ковёр'], ['🔥', 'Камин'], ['🪟', 'Окно'], ['🗄️', 'Письменный стол']];
+    const QUOTES = ['Я весь вечер провёл в библиотеке. Спросите кого угодно!', 'Покойный был мне должен, но я бы никогда…', 'Я слышал крик около полуночи, но решил, что это ветер.', 'Почему вы смотрите на меня? Я просто гость!', 'Он угрожал изменить завещание. Но это не повод…', 'Я ничего не видел. Совсем ничего.'];
+    const MAX_ACTIONS = 6;
+    const $ = (id) => document.getElementById(id);
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    let game;
+    let stats = (() => { try { return JSON.parse(localStorage.getItem('det_stats')) ?? { solved: 0, total: 0 }; } catch { return { solved: 0, total: 0 }; } })();
+
+    // Генерация дела: убийца — единственный, кто подходит под все три улики, и ни одна улика не указывает на него в одиночку
+    function generate() {
+      for (let attempt = 0; attempt < 500; attempt++) {
+        const people = shuffle([...NAMES]).slice(0, 6).map(([name, face, role]) => ({ name, face, role, hair: Math.floor(Math.random() * 4), item: Math.floor(Math.random() * 5), shoe: 38 + Math.floor(Math.random() * 7), asked: false, out: false, quote: pick(QUOTES) }));
+        const killer = Math.floor(Math.random() * 6);
+        const k = people[killer];
+        const match = (p) => p.hair === k.hair && p.item === k.item && p.shoe === k.shoe;
+        if (people.filter(match).length !== 1) continue;
+        if (people.filter((p) => p.hair === k.hair).length < 2) continue;
+        if (people.filter((p) => p.item === k.item).length < 2) continue;
+        const clues = shuffle([
+          { kind: 'hair', text: `Найден ${HAIR[k.hair][1]}` },
+          { kind: 'item', text: ITEMS[k.item][1][0].toUpperCase() + ITEMS[k.item][1].slice(1) },
+          { kind: 'shoe', text: `Отпечаток ботинка ${k.shoe} размера` },
+          { kind: 'none', text: 'Ничего подозрительного' },
+        ]);
+        return { people, killer, clues, spotsOpen: [false, false, false, false], used: 0, number: 100 + Math.floor(Math.random() * 900), victim: pick(VICTIMS), place: pick(PLACES), over: false };
+      }
+    }
+
+    function newCase() {
+      game = generate();
+      $('result').hidden = true;
+      $('caseTitle').textContent = `Дело №${game.number}`;
+      $('story').innerHTML = `Этой ночью ${game.place} был найден мёртвым <b>${game.victim}</b>. В доме оставались шестеро. Убийца среди них. У вас есть <b>${MAX_ACTIONS} действий</b>, чтобы собрать улики, — потом придётся назвать виновного.`;
+      render();
+    }
+
+    function render() {
+      $('actions').innerHTML = 'Действия: ' + Array.from({ length: MAX_ACTIONS }, (_, i) => `<i class="${i < game.used ? 'used' : ''}"></i>`).join('');
+      const left = MAX_ACTIONS - game.used;
+      $('spots').innerHTML = SPOTS.map(([e, n], i) => {
+        const open = game.spotsOpen[i];
+        const c = game.clues[i];
+        return `<button class="spot ${open && c.kind !== 'none' ? 'found' : ''}" data-spot="${i}" ${open || !left ? 'disabled' : ''}>
+          <b>${e}</b><span>${n}</span><small>${open ? c.text : 'Осмотреть · 1 действие'}</small></button>`;
+      }).join('');
+      $('suspects').innerHTML = game.people.map((p, i) => `
+        <article class="sus ${p.out ? 'out' : ''}">
+          <div class="sus__top"><span class="sus__face">${p.face}</span><div><b>${p.name}</b><small>${p.role}</small></div></div>
+          <ul class="facts">
+            <li>Волосы: <b>${HAIR[p.hair][0]}</b></li>
+            <li>Вещь: ${p.asked ? `<b>${ITEMS[p.item][0]}</b>` : '<span class="q">неизвестно</span>'}</li>
+            <li>Обувь: ${p.asked ? `<b>${p.shoe} размер</b>` : '<span class="q">неизвестно</span>'}</li>
+          </ul>
+          ${p.asked ? `<p class="quote">«${p.quote}»</p>` : ''}
+          <div class="sus__btns">
+            <button class="mini" data-ask="${i}" ${p.asked || !left ? 'disabled' : ''}>${p.asked ? 'Допрошен' : 'Допросить'}</button>
+            <button class="mini" data-out="${i}" aria-label="Вычеркнуть">${p.out ? '↺' : '✗'}</button>
+            <button class="mini mini--red" data-accuse="${i}">Обвинить</button>
+          </div>
+        </article>`).join('');
+      $('score').textContent = `Раскрыто дел: ${stats.solved} из ${stats.total}`;
+    }
+
+    function accuse(i) {
+      if (game.over) return;
+      game.over = true;
+      const k = game.people[game.killer];
+      const ok = i === game.killer;
+      stats.total++; if (ok) stats.solved++;
+      try { localStorage.setItem('det_stats', JSON.stringify(stats)); } catch {}
+      $('resTitle').textContent = ok ? '✔ Дело раскрыто!' : '✘ Убийца ушёл';
+      $('resText').innerHTML = ok
+        ? `${k.face} <b>${k.name}</b> признаётся во всём. ${HAIR[k.hair][1][0].toUpperCase() + HAIR[k.hair][1].slice(1)}, ${ITEMS[k.item][0]} и ботинки ${k.shoe} размера выдали виновного. Блестящая работа, детектив!`
+        : `${game.people[i].face} ${game.people[i].name} — не убийца. Настоящий убийца — ${k.face} <b>${k.name}</b>: ${HAIR[k.hair][0]} волосы, ${ITEMS[k.item][0]}, ${k.shoe} размер обуви.`;
+      $('result').hidden = false;
+      render();
+    }
+
+    document.addEventListener('click', (e) => {
+      const spot = e.target.closest('[data-spot]');
+      const ask = e.target.closest('[data-ask]');
+      const out = e.target.closest('[data-out]');
+      const acc = e.target.closest('[data-accuse]');
+      if (spot && game.used < MAX_ACTIONS) { game.spotsOpen[+spot.dataset.spot] = true; game.used++; render(); }
+      if (ask && game.used < MAX_ACTIONS) { game.people[+ask.dataset.ask].asked = true; game.used++; render(); }
+      if (out) { const p = game.people[+out.dataset.out]; p.out = !p.out; render(); }
+      if (acc) { const p = game.people[+acc.dataset.accuse]; if (confirm(`Обвинить: ${p.name}? Пути назад не будет.`)) accuse(+acc.dataset.accuse); }
+    });
+    $('nextCase').onclick = newCase;
+    newCase();
+  </script>
+</body>
+</html>
